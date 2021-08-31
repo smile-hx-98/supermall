@@ -3,6 +3,8 @@
     <nav-bar class="home-nav">
       <div slot="center">购物街</div>
     </nav-bar>
+    <tab-control class="tab-control" :titles="['流行', '新款', '精选']" @tabClick="tabClick" ref="tabControl1"
+      v-show="isTabFixed" />
     <!-- <swiper>
       <swiper-item v-for="(item, index) in banners" :key="index">
         <a :href="item.link">
@@ -12,10 +14,10 @@
     </swiper> -->
     <scroll class="content" ref="scroll" :probe-type="3" @scroll="ContentScroll" :pull-up-load="true"
       @pullingUp="loadMore">
-      <home-swiper :banners="banners" />
+      <home-swiper :banners="banners" @swiperImageLoad="swiperImageLoad" />
       <recommend-view :recommends="recommends" />
       <feature-view />
-      <tab-control class="tab-control" :titles="['流行', '新款', '精选']" @tabClick="tabClick" />
+      <tab-control class="tab-control" :titles="['流行', '新款', '精选']" @tabClick="tabClick" ref="tabControl2" />
       <goods-list :goods="showGoods" />
     </scroll>
     <back-top @click.native="backClick" v-show="isShowBackTop" />
@@ -37,6 +39,8 @@
     getHomeMultidata,
     getHomeGoods
   } from 'network/home'
+  // import {debounce} from 'common/utils'
+  import {itemListenerMixin} from 'common/mixin'
 
   export default {
     name: 'Home',
@@ -50,6 +54,7 @@
       Scroll,
       BackTop
     },
+    mixins: [itemListenerMixin],
     data() {
       return {
         // result: null,
@@ -70,13 +75,31 @@
           }
         },
         currentType: 'pop',
-        isShowBackTop: false
+        isShowBackTop: false,
+        tabOffsetTop: 0,
+        isTabFixed: false,
+        saveY: 0
       }
     },
     computed: {
       showGoods() {
         return this.goods[this.currentType].list
       }
+    },
+    destroyed() {
+      // console.log('----')
+    },
+    activated() {
+      this.$refs.scroll.scrollTo(0, this.saveY, 0)
+      this.$refs.scroll.refresh()
+    },
+    deactivated() {
+      // this.aveY = this.$refs.scroll.scroll.y
+      //1.保存Y值
+      this.saveY = this.$refs.scroll.getScrollY()
+
+      //2.取消全局事件的监听
+      this.$bus.$off('itemImageLoad', this.itemImgListener)
     },
     created() {
       //1.请求多个数据
@@ -86,16 +109,48 @@
       //   this.banners = res.data.banner.list
       //   this.recommends = res.data.recommend.list
       // }),
-      this.getHomeMultidata(),
-        //2.请求商品数据
-      this.getHomeGoods('pop'),
-      this.getHomeGoods('new'),
+      this.getHomeMultidata()
+      //2.请求商品数据
+      this.getHomeGoods('pop')
+      this.getHomeGoods('new')
       this.getHomeGoods('sell')
+
+      //3.赋值
+      // this.tabOffsetTop = this.$refs.tabControl
+    },
+    mounted() {
+      //1.图片加载完成的事件监听
+      // let newRefresh = debounce(this.$refs.scroll.refresh, 100)
+
+      // //对监听的事件进行保存
+      // this.itemImgListener = () => {
+      //   newRefresh()
+      // }
+      // //3.监听图片加载完成
+      // this.$bus.$on('itemImageLoad', this.itemImgListener)
+      // this.$bus.$on('itemImageLoad', () => {
+      //   // console.log('------')
+      //   // this.$refs.scroll.refresh()
+      //   // newRefresh()
+      // })
+      //2.获取tabControl的tabOffsetTop
+      //所有的组件都有一个属性$el:用于获取组件中的元素
+      // this.tabOffsetTop = this.$refs.tabControl.$el.offsetTop
+      // console.log(this.$refs.tabControl.$el.offsetTop)
     },
     methods: {
       /*
       事件监听相关
       */
+      // debounce(func, delay) {
+      //   let timer = null
+      //   return function (...args) {
+      //     if (timer) clearTimeout(timer)
+      //     timer = setTimeout(() => {
+      //       func.apply(this, args)
+      //     }, delay)
+      //   }
+      // },
       tabClick(index) {
         // console.log(index)
         switch (index) {
@@ -109,19 +164,26 @@
             this.currentType = 'sell';
             break;
         }
+        //保持两个tabControl状态一致
+        this.$refs.tabControl1.currentIndex = index
+        this.$refs.tabControl2.currentIndex = index
       },
       backClick() {
         this.$refs.scroll.scrollTo(0, 0)
       },
       ContentScroll(position) {
         // console.log(position)
+        //1.判断BackTop是否显示
         this.isShowBackTop = -position.y > 800
+        //2.决定tabControl是否吸顶(position:fixed)
+        this.isTabFixed = -position.y > this.tabOffsetTop
       },
       loadMore() {
-        // console.log('上拉加载')
         this.getHomeGoods(this.currentType)
-        
-        this.$refs.scroll.scroll.refresh()
+      },
+      swiperImageLoad() {
+        // console.log(this.$refs.tabControl.$el.offsetTop)
+        this.tabOffsetTop = this.$refs.tabControl2.$el.offsetTop;
       },
       /*
       网络请求相关
@@ -183,6 +245,13 @@
     left: 0;
     right: 0;
   }
+
+  /* .fixed { //这样是不起作用的
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 44px;
+  } */
 
   /* .content {
     height: calc(100% - 93px);

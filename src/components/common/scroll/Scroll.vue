@@ -40,19 +40,28 @@
         this.$emit('scroll', position)
       })
 
-      //3.监听上拉加载事件
-      this.scroll.on('pullingUp', () => {
-        // console.log('上拉加载更多')
-        this.$emit('pullingUp')
-      })
-      // this.scroll.scrollTo(0, 0)
+      //3.监听scroll滚动到底部
+      if(this.pullUpLoad) {
+        this.scroll.on('pullingUp', () => {
+          this.$emit('pullingUp')
+        })
+      }
+
+
     },
     methods: {
       scrollTo(x, y, time = 500) {
-        this.scroll.scrollTo(x, y, time)
+        this.scroll && this.scroll.scrollTo(x, y, time)
       },
       finishPullUp() {
-        this.scroll.finishPullUp()
+        this.scroll && this.scroll.finishPullUp()
+      },
+      refresh() {
+        // console.log('-----')
+        this.scroll && this.scroll.refresh()
+      },
+      getScrollY() {
+        return this.scroll.y ? this.scroll.y : 0
       }
     }
   }
